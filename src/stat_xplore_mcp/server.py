@@ -41,35 +41,44 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="query_table",
-            description="Query a Stat-Xplore table to get benefit statistics data",
+            description=(
+                "Query a Stat-Xplore table to get benefit statistics data. "
+                "For median/mean calculations, use statistical function measures like "
+                "'str:statfn:HBAI:V_F_HBAI:S_OE_BHC:MEDIAN' (pattern: str:statfn:{db}:{view}:{measure}:{MEDIAN|MEAN}). "
+                "Use recodes to filter specific values or add totals."
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
                     "database": {
                         "type": "string",
-                        "description": "Database ID (e.g., 'str:database:UC_Monthly')",
+                        "description": "Database ID (e.g., 'str:database:HBAI')",
                     },
                     "measures": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "List of measure IDs to retrieve",
+                        "description": (
+                            "List of measure IDs. For counts use 'str:count:...' or 'str:measure:...'. "
+                            "For median/mean use 'str:statfn:{db}:{view}:{measure}:MEDIAN' or ':MEAN'"
+                        ),
                     },
-                    "row_fields": {
+                    "dimensions": {
                         "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Field IDs for row dimension",
+                        "items": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                        },
+                        "description": "List of dimension arrays. Each inner array contains field IDs for that dimension axis.",
                     },
-                    "column_fields": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Optional field IDs for column dimension",
-                    },
-                    "filters": {
+                    "recodes": {
                         "type": "object",
-                        "description": "Filters: field ID -> list of value IDs",
+                        "description": (
+                            "Optional recodes to filter/group values. Format: {field_id: {map: [[value1], [value2, value3]], total: true}}. "
+                            "Each inner array in 'map' becomes one row/column. Multiple values in same array are combined."
+                        ),
                     },
                 },
-                "required": ["database", "measures", "row_fields"],
+                "required": ["database", "measures", "dimensions"],
             },
         ),
         Tool(
@@ -115,13 +124,15 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             ]
 
         elif name == "query_table":
-            result = client.query_table_simple(
+            from stat_xplore_mcp.models import TableQuery
+
+            query = TableQuery(
                 database=arguments["database"],
                 measures=arguments["measures"],
-                row_fields=arguments["row_fields"],
-                column_fields=arguments.get("column_fields"),
-                filters=arguments.get("filters"),
+                dimensions=arguments["dimensions"],
+                recodes=arguments.get("recodes"),
             )
+            result = client.query_table(query)
             return [
                 TextContent(type="text", text=json.dumps(result.model_dump(), indent=2))
             ]
