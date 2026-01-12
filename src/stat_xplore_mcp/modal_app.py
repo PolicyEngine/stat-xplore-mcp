@@ -9,13 +9,17 @@ app = modal.App("stat-xplore-api")
 # Get the directory containing this file
 package_dir = Path(__file__).parent
 
-image = modal.Image.debian_slim(python_version="3.11").pip_install(
-    "fastapi>=0.115.0",
-    "httpx>=0.28.0",
-    "pydantic>=2.10.0",
-    "pydantic-settings>=2.7.0",
-    "python-dotenv>=1.0.1",
-    "uvicorn>=0.34.0",
+image = (
+    modal.Image.debian_slim(python_version="3.11")
+    .pip_install(
+        "fastapi>=0.115.0",
+        "httpx>=0.28.0",
+        "pydantic>=2.10.0",
+        "pydantic-settings>=2.7.0",
+        "python-dotenv>=1.0.1",
+        "uvicorn>=0.34.0",
+    )
+    .add_local_dir(package_dir, remote_path="/root/stat_xplore_mcp")
 )
 
 
@@ -23,7 +27,6 @@ image = modal.Image.debian_slim(python_version="3.11").pip_install(
     image=image,
     secrets=[modal.Secret.from_name("stat-xplore")],
     keep_warm=1,
-    mounts=[modal.Mount.from_local_dir(package_dir, remote_path="/root/stat_xplore_mcp")],
 )
 @modal.asgi_app()
 def fastapi_app():
