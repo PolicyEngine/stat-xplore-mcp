@@ -3,7 +3,7 @@
 import httpx
 from rich.console import Console
 
-from stat_xplore_mcp.config import settings
+from stat_xplore_mcp.config import get_api_key, settings
 from stat_xplore_mcp.models import (
     RateLimitInfo,
     SchemaItem,
@@ -18,7 +18,7 @@ class StatXploreClient:
     """Client for the Stat-Xplore Open Data API."""
 
     def __init__(self, api_key: str | None = None, base_url: str | None = None):
-        self.api_key = api_key or settings.stat_xplore_api_key
+        self.api_key = api_key or get_api_key()
         self.base_url = base_url or settings.stat_xplore_base_url
         self._client = httpx.Client(
             base_url=self.base_url,

@@ -5,10 +5,12 @@ MCP server for querying DWP Stat-Xplore benefit statistics.
 ## Claude Code setup
 
 ```bash
-claude mcp add stat-xplore -e STAT_XPLORE_API_KEY=your_key -- uvx --from git+https://github.com/PolicyEngine/stat-xplore-mcp stat-xplore-mcp
+claude mcp add stat-xplore -- uvx --from git+https://github.com/PolicyEngine/stat-xplore-mcp stat-xplore-mcp
 ```
 
-Get an API key from [Stat-Xplore](https://stat-xplore.dwp.gov.uk) under Account > Open Data API Access.
+On first use, you'll be prompted to enter your API key. Get one from [Stat-Xplore](https://stat-xplore.dwp.gov.uk) under Account > Open Data API Access.
+
+The API key is stored in `~/.config/stat-xplore-mcp/config.json`. You can also set it via the `STAT_XPLORE_API_KEY` environment variable.
 
 ## Tools
 
