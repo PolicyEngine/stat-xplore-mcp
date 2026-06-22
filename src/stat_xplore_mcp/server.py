@@ -7,6 +7,7 @@ from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
 from stat_xplore_mcp.client import StatXploreClient
+from stat_xplore_mcp.config import MissingAPIKeyError
 
 server = Server("stat-xplore")
 
@@ -106,7 +107,10 @@ async def list_tools() -> list[Tool]:
 @server.call_tool()
 async def call_tool(name: str, arguments: dict) -> list[TextContent]:
     """Execute an MCP tool."""
-    client = get_client()
+    try:
+        client = get_client()
+    except MissingAPIKeyError as e:
+        return [TextContent(type="text", text=str(e))]
 
     try:
         if name == "list_databases":
@@ -160,7 +164,14 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 
 
 def main():
-    """Run the MCP server."""
+    """Run the MCP server, or the 'configure' subcommand to save an API key."""
+    import sys
+
+    if len(sys.argv) > 1 and sys.argv[1] == "configure":
+        from stat_xplore_mcp.config import configure
+
+        sys.exit(configure())
+
     import asyncio
 
     async def run():

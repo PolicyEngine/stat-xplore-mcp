@@ -16,6 +16,23 @@ CONFIG_DIR = Path.home() / ".config" / "stat-xplore-mcp"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
 
+class MissingAPIKeyError(RuntimeError):
+    """Raised when no Stat-Xplore API key can be found."""
+
+
+SETUP_INSTRUCTIONS = (
+    "No Stat-Xplore API key found.\n\n"
+    "Get a key from https://stat-xplore.dwp.gov.uk "
+    "(Account > Open Data API Access), then provide it in one of two ways:\n\n"
+    "  1. Run once in a terminal to save it:\n"
+    "       uvx --from git+https://github.com/PolicyEngine/stat-xplore-mcp "
+    "stat-xplore-mcp configure\n\n"
+    "  2. Or set the STAT_XPLORE_API_KEY environment variable in your MCP "
+    "server config.\n\n"
+    f"Saved keys live in {CONFIG_FILE}."
+)
+
+
 def load_stored_api_key() -> str | None:
     """Load API key from config file if it exists."""
     if CONFIG_FILE.exists():
@@ -29,37 +46,48 @@ def load_stored_api_key() -> str | None:
 
 
 def save_api_key(api_key: str) -> None:
-    """Save API key to config file."""
+    """Save API key to config file with owner-only permissions."""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     with open(CONFIG_FILE, "w") as f:
         json.dump({"api_key": api_key}, f)
+    CONFIG_FILE.chmod(0o600)
 
 
-def prompt_for_api_key() -> str:
-    """Prompt user for API key via stderr (MCP servers use stdout for protocol)."""
+def configure() -> int:
+    """Interactively prompt for an API key and save it.
+
+    Intended to be run from a real terminal (not the MCP stdio server, where
+    stdin carries the JSON-RPC protocol). Returns a process exit code.
+    """
     sys.stderr.write(
-        "\n╔══════════════════════════════════════════════════════════════════╗\n"
-        "║           Stat-Xplore MCP - API Key Required                     ║\n"
-        "╠══════════════════════════════════════════════════════════════════╣\n"
-        "║ Get your API key from: https://stat-xplore.dwp.gov.uk            ║\n"
-        "║ Go to: Account > Open Data API Access                            ║\n"
-        "╚══════════════════════════════════════════════════════════════════╝\n\n"
+        "Stat-Xplore MCP - API key setup\n"
+        "Get your key from https://stat-xplore.dwp.gov.uk "
+        "(Account > Open Data API Access)\n\n"
     )
-    sys.stderr.write("Enter your Stat-Xplore API key: ")
-    sys.stderr.flush()
 
-    api_key = input().strip()
+    if not sys.stdin.isatty():
+        sys.stderr.write(
+            "Error: 'configure' must be run in an interactive terminal.\n"
+            "Alternatively set the STAT_XPLORE_API_KEY environment variable.\n"
+        )
+        return 1
 
-    if api_key:
-        save_api_key(api_key)
-        sys.stderr.write(f"API key saved to {CONFIG_FILE}\n")
-        sys.stderr.flush()
+    api_key = input("Enter your Stat-Xplore API key: ").strip()
+    if not api_key:
+        sys.stderr.write("No key entered. Nothing saved.\n")
+        return 1
 
-    return api_key
+    save_api_key(api_key)
+    sys.stderr.write(f"\nAPI key saved to {CONFIG_FILE}\n")
+    return 0
 
 
 def get_api_key() -> str:
-    """Get API key from environment, config file, or prompt user."""
+    """Get API key from environment or config file.
+
+    Raises:
+        MissingAPIKeyError: if no key is configured, with setup instructions.
+    """
     # First check environment variable
     settings = Settings()
     if settings.stat_xplore_api_key:
@@ -70,8 +98,7 @@ def get_api_key() -> str:
     if stored_key:
         return stored_key
 
-    # Finally prompt user
-    return prompt_for_api_key()
+    raise MissingAPIKeyError(SETUP_INSTRUCTIONS)
 
 
 class Settings(BaseSettings):
